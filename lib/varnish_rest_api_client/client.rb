@@ -35,3 +35,4 @@ end
 # https://gist.github.com/kyletcarlson/7911188
 # http://blog.paracode.com/2012/05/17/building-your-tools-with-thor/
 # print_table ! ask !
+# http://www.rubydoc.info/gems/user_config/0.0.4/frames
