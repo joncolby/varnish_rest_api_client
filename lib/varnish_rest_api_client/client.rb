@@ -1,14 +1,22 @@
 require "thor"
 require "json"
 require 'open-uri'
+require 'zk'
 require_relative "version"
 
 module VarnishRestApiClient
   
 class Client < Thor
-  class_option :zk_server, :default => "autodeploy38-2"
-  class_option :varnish, :required => true
-      
+  class_option :zkserver, :aliases => "zs", :desc => "zookeeper server or ip"
+  class_option :zkport, :default => 2181, :aliases => "zp", :desc => "zookeeper port"
+  class_option :varnish, :required => true,  :aliases => "V", :desc => "varnish server(s)"
+  
+  # alternate use invoke
+  def initialize(*args)
+    super
+    get_zk_nodes
+  end 
+     
   desc "out BACKEND", "set health of this varnish BACKEND to sick."
     def out() 
       puts "out "      
@@ -24,8 +32,19 @@ class Client < Thor
       puts "connecting to #{options[:varnish]} v #{VERSION}"
       buffer = open("http://#{options[:varnish]}/list").read
       result = JSON.parse(buffer)
-      puts result
+      #puts result
     end
+    
+   no_commands { 
+    def get_zk_nodes
+      @zk = ZK.new("autodeploy38-2:2181")
+      nodes = @zk.children('/varnish', watch: false)
+      nodes.each do |node| 
+        data, stat = @zk.get("/varnish/#{node}", watch: false)
+        puts data
+      end 
+    end
+   }
   
   
 end

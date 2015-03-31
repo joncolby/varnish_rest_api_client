@@ -26,6 +26,8 @@ Gem::Specification.new do |spec|
   
   spec.add_dependency "thor"
   spec.add_dependency "json"
+  spec.add_dependency "zk"
+  spec.add_dependency "zookeeper"
 
   spec.add_development_dependency "bundler", "~> 1.9"
   spec.add_development_dependency "rake", "~> 10.0"
