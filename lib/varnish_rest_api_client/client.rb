@@ -8,14 +8,17 @@ module VarnishRestApiClient
 
 class Client < Thor
   class_option :varnish, :aliases => "V", :desc => "varnish server(s)"
-  class_option :zkserver, :aliases => "z", :desc => "zookeeper server:port", :default => "192.168.33.16:2181"
+  class_option :zkserver, :aliases => "z", :desc => "zookeeper server:port", :default => "autodeploy38-2:2181"
+  class_option :zkpath, :aliases => "P", :desc => "zookeeper varnish root path", :default => "/varnish"
 
   # alternate use invoke
-def initialize(*args)  
+  def initialize(*args)  
     super 
+    @nodes = Array.new
     @use_zookeeper = use_zookeeper
     if @use_zookeeper  
-      @discovered_zookeepers = get_zk_nodes
+      @nodes = get_zk_nodes
+
     end   
   end 
 
@@ -29,20 +32,45 @@ def initialize(*args)
       puts "in "
     end
     
-  desc "list", "display all varnish backends"
-    def list
-      if @use_zookeeper
-        @discovered_zookeepers.each do |api| 
-          # exception handling
-          buffer = open("http://#{api}/list").read
-          result = JSON.parse(buffer)
-          result << { :varnish_host => "#{api}" } 
-        end
-      else
-        # do one varnish lookup
+  desc "show", "show varnish hosts registered with zookeeper"
+    def show
+      puts @nodes.join("\n")
+    end
+  
+  desc "list PATTERN", "display all varnish backends"
+    def list(pattern=nil)
+      
+      backends_found = Array.new      
+      unless @use_zookeeper
+        @nodes << options[:varnish]
       end
 
-    end
+        @nodes.each do |api|        
+          if pattern
+            uri = "http://#{api}/list/#{pattern}"
+          else
+            uri = "http://#{api}/list" 
+          end 
+                    
+          begin          
+            buffer = open(uri).read
+          rescue SocketError => e
+            abort "problem connectioing rest api at #{uri}: #{e.message}"
+          rescue OpenURI::HTTPError => e
+            abort "problem calling rest api at #{uri}: #{e.message}"
+          end
+          result = JSON.parse(buffer)
+
+          next if result.empty?
+          
+          if result.first.class != Hash
+             puts "error from #{api}: #{result}"
+          end
+          
+          backends_found << result.collect { |e| e["varnishhost"] = api ; e  }  
+        end
+           puts backends_found.empty? ? "no backends found for pattern #{pattern}" : backends_found
+   end
     
    no_commands do 
      
@@ -57,9 +85,14 @@ def initialize(*args)
       begin
         @zk = ZK.new(options[:zkserver])
       rescue ArgumentError => e
-        abort "could not connect to zookeeper server: #{options[:zookeeper]}"
+        abort "could not connect to zookeeper server: #{options[:zkserver]}"
       end
-      nodes = @zk.children('/varnish', :watch => false)
+      
+      begin
+      nodes = @zk.children(options[:zkpath], :watch => false)
+      rescue ZK::Exceptions::NoNode => e
+        abort "no nodes found in path #{options[:zkpath]} on zookeeper server #{options[:zkserver]}"
+      end
       return nodes.collect do |node| 
         data, stat = @zk.get("/varnish/#{node}", :watch => false)
         data.chomp
