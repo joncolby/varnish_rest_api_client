@@ -55,7 +55,7 @@ class Client < Thor
           begin          
             buffer = open(uri).read
           rescue SocketError => e
-            abort "problem connectioing rest api at #{uri}: #{e.message}"
+            abort "problem connecting rest api at #{uri}: #{e.message}"
           rescue OpenURI::HTTPError => e
             abort "problem calling rest api at #{uri}: #{e.message}"
           end
@@ -84,8 +84,10 @@ class Client < Thor
     def get_zk_nodes
       begin
         @zk = ZK.new(options[:zkserver])
-      rescue ArgumentError => e
-        abort "could not connect to zookeeper server: #{options[:zkserver]}"
+      rescue ArgumentError, RuntimeError => e
+        $stderr.puts "\n\tcould not connect to zookeeper server: #{options[:zkserver]}\n\n"
+        help
+        exit(1) 
       end
       
       begin
