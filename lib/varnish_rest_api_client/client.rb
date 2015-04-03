@@ -13,7 +13,7 @@ class Client < Thor
 
   # alternate use invoke
   def initialize(*args)  
-    super 
+    super
     @nodes = Array.new
     @use_zookeeper = use_zookeeper
     if @use_zookeeper  
@@ -51,7 +51,8 @@ class Client < Thor
           else
             uri = "http://#{api}/list" 
           end 
-                    
+           
+          # TODO implement call_rest here         
           begin          
             buffer = open(uri).read
           rescue SocketError => e
@@ -100,6 +101,22 @@ class Client < Thor
         data.chomp
       end 
     end
+    
+    def call_rest(url) 
+      begin          
+       buffer = open(url).read
+      rescue SocketError => e
+       abort "problem connecting rest api at #{url}: #{e.message}"
+      rescue OpenURI::HTTPError => e
+       abort "problem calling rest api at #{url}: #{e.message}"
+      end
+      if block_given?
+        yield buffer
+      else
+        buffer
+      end
+    end
+    
    end
     
 end
