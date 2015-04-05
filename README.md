@@ -1,8 +1,6 @@
 # VarnishRestApiClient
 
-Welcome to your new gem! In this directory, you'll find the files you need to be able to package up your Ruby library into a gem. Put your Ruby code in the file `lib/varnish_rest_api_client`. To experiment with that code, run `bin/console` for an interactive prompt.
-
-TODO: Delete this and the text above, and describe your gem
+The varnish rest api client is a command-line client program to call the varnish_rest_api.
 
 ## Installation
 
@@ -22,7 +20,23 @@ Or install it yourself as:
 
 ## Usage
 
-TODO: Write usage instructions here
+```
+varnishapiclient.rb
+
+Commands:
+  varnishapiclient.rb help [COMMAND]  # Describe available commands or one specific command
+  varnishapiclient.rb in BACKEND      # set health of this varnish BACKEND to auto
+  varnishapiclient.rb list PATTERN    # display all varnish backends
+  varnishapiclient.rb out BACKEND     # set health of this varnish BACKEND to sick.
+  varnishapiclient.rb show            # show varnish nodes registered with zookeeper
+
+Options:
+  V, [--varnish=varnish1:10001 varnish2:10001]  # varnish nodes(s)
+  z, [--zkserver=ZKSERVER]      # zookeeper server:port
+                                # Default: autodeploy38-2:2181
+  P, [--zkpath=ZKPATH]          # zookeeper varnish root path
+                                # Default: /varnish
+```
 
 ## Development
 
