@@ -7,7 +7,7 @@ require_relative "version"
 module VarnishRestApiClient
 
 class Client < Thor
-  class_option :varnish, :aliases => "V", :desc => "varnish server(s)"
+  class_option :varnish, :aliases => "V", :desc => "varnish server(s)", :type => :array
   class_option :zkserver, :aliases => "z", :desc => "zookeeper server:port", :default => "autodeploy38-2:2181"
   class_option :zkpath, :aliases => "P", :desc => "zookeeper varnish root path", :default => "/varnish"
 
@@ -18,18 +18,25 @@ class Client < Thor
     @use_zookeeper = use_zookeeper
     if @use_zookeeper  
       @nodes = get_zk_nodes
-
+    else
+      @nodes = options[:varnish]
     end   
   end 
 
   desc "out BACKEND", "set health of this varnish BACKEND to sick."
-    def out() 
-      puts "out "      
+    def out(backend) 
+      @nodes.each do |api|
+        p = call_rest(api)
+        puts p.call("#{backend}/out")
+      end      
     end
     
   desc "in BACKEND", "set health of this varnish BACKEND to auto"
-    def in()
-      puts "in "
+    def in(backend)
+      @nodes.each do |api|
+        p = call_rest(api)
+        puts p.call("#{backend}/in")
+      end
     end
     
   desc "show", "show varnish hosts registered with zookeeper"
@@ -38,39 +45,20 @@ class Client < Thor
     end
   
   desc "list PATTERN", "display all varnish backends"
-    def list(pattern=nil)
-      
+    def list(pattern=nil)      
       backends_found = Array.new      
-      unless @use_zookeeper
-        @nodes << options[:varnish]
-      end
-
-        @nodes.each do |api|        
-          if pattern
-            uri = "http://#{api}/list/#{pattern}"
-          else
-            uri = "http://#{api}/list" 
-          end 
-           
-          # TODO implement call_rest here         
-          begin          
-            buffer = open(uri).read
-          rescue SocketError => e
-            abort "problem connecting rest api at #{uri}: #{e.message}"
-          rescue OpenURI::HTTPError => e
-            abort "problem calling rest api at #{uri}: #{e.message}"
-          end
-          result = JSON.parse(buffer)
-
-          next if result.empty?
-          
+        @nodes.each do |api|           
+          uri = pattern ?  "list/#{pattern}" : "list"      
+          p = call_rest(api)
+          result = p.call(uri)          
+          next if result.empty?          
           if result.first.class != Hash
              puts "error from #{api}: #{result}"
           end
           
-          backends_found << result.collect { |e| e["varnishhost"] = api ; e  }  
+          backends_found << result
         end
-           puts backends_found.empty? ? "no backends found for pattern #{pattern}" : backends_found
+           puts backends_found.empty? ? "no backends found for pattern #{pattern}" : backends_found         
    end
     
    no_commands do 
@@ -102,18 +90,34 @@ class Client < Thor
       end 
     end
     
-    def call_rest(url) 
+    def call_rest(node) 
+      return Proc.new do |action| 
+        begin          
+         buffer = open("http://#{node}/#{action}").read
+         result = JSON.parse(buffer)
+         result.collect! { |e| e["varnishhost"] = node ; e  } 
+        rescue SocketError => e
+         abort "problem connecting rest api at #{node}: #{e.message}"
+        rescue OpenURI::HTTPError => e
+         abort "problem calling rest api at #{node}: #{e.message}"
+        end
+      end
+    end
+    
+    def call_restb(url,node_name) 
       begin          
        buffer = open(url).read
+       result = JSON.parse(buffer)
+       result.collect! { |e| e["varnishhost"] = node_name ; e  } 
       rescue SocketError => e
        abort "problem connecting rest api at #{url}: #{e.message}"
       rescue OpenURI::HTTPError => e
        abort "problem calling rest api at #{url}: #{e.message}"
       end
       if block_given?
-        yield buffer
+        yield result
       else
-        buffer
+        result
       end
     end
     
