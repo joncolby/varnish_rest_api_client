@@ -7,11 +7,11 @@ Gem::Specification.new do |spec|
   spec.name          = "varnish_rest_api_client"
   spec.version       = VarnishRestApiClient::VERSION
   spec.authors       = ["Jonathan Colby"]
-  spec.email         = ["jcolby@team.mobile.de"]
+  spec.email         = ["jonathan.colby@gmail.com"]
 
   spec.summary       = %q{A command line client for the varnish rest api.}
   spec.description   = %q{A command line client for the varnish rest api.}
-  spec.homepage      = "http://homepage.com"
+  spec.homepage      = "https://github.com/joncolby/varnish_rest_api_client"
   spec.license       = "MIT"
 
   spec.files         = `git ls-files -z`.split("\x0").reject { |f| f.match(%r{^(test|spec|features)/}) }
