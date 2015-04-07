@@ -8,7 +8,7 @@ module VarnishRestApiClient
 
 class Client < Thor
   class_option :varnish, :aliases => "V", :desc => "varnish server(s)", :type => :array
-  class_option :zkserver, :aliases => "z", :desc => "zookeeper server:port", :default => "autodeploy38-2:2181"
+  class_option :zkserver, :aliases => "z", :desc => "zookeeper server:port", :default => "autodeploy.mobile.rz:2181"
   class_option :zkpath, :aliases => "P", :desc => "zookeeper varnish root path", :default => "/varnish"
 
   # alternate use invoke
@@ -25,18 +25,12 @@ class Client < Thor
 
   desc "out BACKEND", "set health of this varnish BACKEND to sick."
     def out(backend) 
-      @nodes.each do |api|
-        p = call_rest(api)
-        puts p.call("#{backend}/out")
-      end      
+      set_health(backend,"out")
     end
     
   desc "in BACKEND", "set health of this varnish BACKEND to auto"
     def in(backend)
-      @nodes.each do |api|
-        p = call_rest(api)
-        puts p.call("#{backend}/in")
-      end
+      set_health(backend,"in")
     end
     
   desc "show", "show varnish hosts registered with zookeeper"
@@ -45,23 +39,37 @@ class Client < Thor
     end
   
   desc "list PATTERN", "display all varnish backends"
-    def list(pattern=nil)      
-      backends_found = Array.new      
-        @nodes.each do |api|           
-          uri = pattern ?  "list/#{pattern}" : "list"      
-          p = call_rest(api)
-          result = p.call(uri)          
-          next if result.empty?          
-          if result.first.class != Hash
-             puts "error from #{api}: #{result}"
-          end
-          
-          backends_found << result
-        end
-           puts backends_found.empty? ? "no backends found for pattern #{pattern}" : backends_found         
+    def list(pattern=nil) 
+      backends_found = list_backends(pattern)
+      puts backends_found.empty? ? "no backends found for pattern #{pattern}" : backends_found         
    end
     
    no_commands do 
+     
+    def set_health(backend,action)
+      @varnishes =  list_backends(backend).collect { |varnish| varnish['varnishhost']}      
+      $stderr.puts "no backends found for pattern \"#{backend}\"" if @varnishes.empty?          
+      @varnishes.each do |api|
+        p = call_rest(api)
+        puts p.call("#{backend}/#{action}")
+      end  
+    end
+     
+    def list_backends(pattern=nil)      
+       backends_found = Array.new      
+         @nodes.each do |api|           
+           uri = pattern ?  "list/#{pattern}" : "list"      
+           p = call_rest(api)
+           result = p.call(uri)          
+           next if result.empty?          
+           if result.first.class != Hash
+              puts "error from #{api}: #{result}"
+           end
+           
+           backends_found << result
+         end
+            backends_found.empty? ? [] : backends_found.flatten         
+    end
      
     def use_zookeeper
        if options[:varnish].nil? || options[:varnish].empty?
@@ -95,32 +103,17 @@ class Client < Thor
         begin          
          buffer = open("http://#{node}/#{action}").read
          result = JSON.parse(buffer)
-         result.collect! { |e| e["varnishhost"] = node ; e  } 
+         result.collect! { |e| e["varnishhost"] = node ; e } 
         rescue SocketError => e
          abort "problem connecting rest api at #{node}: #{e.message}"
         rescue OpenURI::HTTPError => e
+          response = e.io
+          $stderr.puts response.string
          abort "problem calling rest api at #{node}: #{e.message}"
         end
       end
     end
-    
-    def call_restb(url,node_name) 
-      begin          
-       buffer = open(url).read
-       result = JSON.parse(buffer)
-       result.collect! { |e| e["varnishhost"] = node_name ; e  } 
-      rescue SocketError => e
-       abort "problem connecting rest api at #{url}: #{e.message}"
-      rescue OpenURI::HTTPError => e
-       abort "problem calling rest api at #{url}: #{e.message}"
-      end
-      if block_given?
-        yield result
-      else
-        result
-      end
-    end
-    
+        
    end
     
 end
